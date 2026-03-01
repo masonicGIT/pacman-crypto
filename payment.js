@@ -25,8 +25,11 @@ let signer = null;
 async function selectChain(chain) {
   selectedChain = chain;
   document.getElementById('chain-select').style.display = 'none';
-  document.getElementById('wallet-connect').style.display = 'block';
-  document.getElementById('selected-chain').textContent = chain === 'base' ? 'Base' : 'Solana';
+  if (selectedChain === 'base') {
+    await connectEVM();
+  } else {
+    await connectSolana();
+  }
 }
 
 // ─── WALLET CONNECTION ───────────────────────────────────────────────────────
@@ -86,7 +89,7 @@ async function connectSolana() {
 // ─── PAYMENT ─────────────────────────────────────────────────────────────────
 
 function showPaymentScreen() {
-  document.getElementById('wallet-connect').style.display = 'none';
+  document.getElementById('chain-select').style.display = 'none';
   document.getElementById('payment-screen').style.display = 'block';
   document.getElementById('wallet-address').textContent =
     connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
