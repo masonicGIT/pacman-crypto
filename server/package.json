@@ -10,7 +10,7 @@
   "dependencies": {
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.95.0",
-    "better-sqlite3": "^9.4.3",
+    "sql.js": "^1.10.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "ethers": "^6.11.1",

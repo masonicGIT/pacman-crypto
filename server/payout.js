@@ -2,14 +2,10 @@ require('dotenv').config();
 const { ethers } = require('ethers');
 const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
 const { getOrCreateAssociatedTokenAccount, transfer } = require('@solana/spl-token');
-const db = require('./db');
+const { get, all, run } = require('./db');
 
-const USDC_ABI = [
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function balanceOf(address) view returns (uint256)'
-];
+const USDC_ABI = ['function transfer(address to, uint256 amount) returns (bool)'];
 
-// Get today's date in PT (UTC-8 standard, UTC-7 daylight)
 function getTodayPT() {
   const now = new Date();
   const pt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
@@ -18,59 +14,38 @@ function getTodayPT() {
 
 async function runPayout() {
   const today = getTodayPT();
-  console.log(`[PAYOUT] Running payout for ${today}`);
+  console.log(`[PAYOUT] Running for ${today}`);
 
-  // Check if already paid out today
-  const existingWinner = db.prepare('SELECT * FROM winners WHERE date = ?').get(today);
+  const existingWinner = get('SELECT * FROM winners WHERE date = ?', [today]);
   if (existingWinner) {
-    console.log(`[PAYOUT] Already paid out for ${today}: ${existingWinner.walletAddress}`);
+    console.log(`[PAYOUT] Already paid for ${today}`);
     return;
   }
 
-  // Get today's highest scorer
-  const winner = db.prepare(`
-    SELECT walletAddress, chain, MAX(score) as score
-    FROM scores
-    WHERE date = ?
-    GROUP BY walletAddress
-    ORDER BY score DESC
-    LIMIT 1
-  `).get(today);
-
+  const winner = get(`SELECT walletAddress, chain, MAX(score) as score FROM scores WHERE date = ? GROUP BY walletAddress ORDER BY score DESC LIMIT 1`, [today]);
   if (!winner) {
-    console.log(`[PAYOUT] No scores for ${today}, skipping`);
+    console.log(`[PAYOUT] No scores for ${today}`);
     return;
   }
 
-  // Count today's payments for prize calculation
-  const paymentCount = db.prepare(`
-    SELECT COUNT(*) as count FROM payments WHERE date = ?
-  `).get(today).count;
+  const { count } = get('SELECT COUNT(*) as count FROM payments WHERE date = ?', [today]) || { count: 0 };
+  const totalPot = count * 0.25;
+  const prize = totalPot * 0.9;
+  const prizeUSDC = Math.floor(prize * 1_000_000);
 
-  const totalPot = paymentCount * 0.25; // $0.25 per play
-  const prize = totalPot * 0.9; // 90% to winner
-  const prizeUSDC = Math.floor(prize * 1_000_000); // 6 decimals
-
-  console.log(`[PAYOUT] Winner: ${winner.walletAddress} on ${winner.chain}`);
-  console.log(`[PAYOUT] Score: ${winner.score} | Pot: $${totalPot.toFixed(2)} | Prize: $${prize.toFixed(2)}`);
+  console.log(`[PAYOUT] Winner: ${winner.walletAddress} | Score: ${winner.score} | Prize: $${prize.toFixed(2)}`);
 
   let payoutTxHash = null;
-
   try {
-    if (winner.chain === 'base') {
-      payoutTxHash = await payoutBase(winner.walletAddress, prizeUSDC);
-    } else if (winner.chain === 'solana') {
-      payoutTxHash = await payoutSolana(winner.walletAddress, prizeUSDC);
-    }
+    if (winner.chain === 'base') payoutTxHash = await payoutBase(winner.walletAddress, prizeUSDC);
+    else if (winner.chain === 'solana') payoutTxHash = await payoutSolana(winner.walletAddress, prizeUSDC);
 
-    db.prepare(`
-      INSERT INTO winners (walletAddress, chain, score, prize, payoutTxHash, date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(winner.walletAddress, winner.chain, winner.score, prize.toFixed(2), payoutTxHash, today);
+    run('INSERT INTO winners (walletAddress, chain, score, prize, payoutTxHash, date) VALUES (?, ?, ?, ?, ?, ?)',
+      [winner.walletAddress, winner.chain, winner.score, prize.toFixed(2), payoutTxHash, today]);
 
-    console.log(`[PAYOUT] ✅ Sent $${prize.toFixed(2)} USDC to ${winner.walletAddress} | tx: ${payoutTxHash}`);
+    console.log(`[PAYOUT] ✅ Sent $${prize.toFixed(2)} to ${winner.walletAddress} | tx: ${payoutTxHash}`);
   } catch (err) {
-    console.error('[PAYOUT] ❌ Error sending payout:', err.message);
+    console.error('[PAYOUT] ❌ Error:', err.message);
   }
 }
 
@@ -85,17 +60,12 @@ async function payoutBase(toAddress, amountUSDC) {
 
 async function payoutSolana(toAddress, amountUSDC) {
   const connection = new Connection(process.env.SOLANA_RPC_URL, 'confirmed');
-  const payer = Keypair.fromSecretKey(
-    Buffer.from(process.env.SOLANA_TREASURY_PRIVATE_KEY, 'base64')
-  );
+  const payer = Keypair.fromSecretKey(Buffer.from(process.env.SOLANA_TREASURY_PRIVATE_KEY, 'base64'));
   const mintPubkey = new PublicKey(process.env.USDC_SOLANA_MINT);
   const toPubkey = new PublicKey(toAddress);
-
   const fromATA = await getOrCreateAssociatedTokenAccount(connection, payer, mintPubkey, payer.publicKey);
   const toATA = await getOrCreateAssociatedTokenAccount(connection, payer, mintPubkey, toPubkey);
-
-  const sig = await transfer(connection, payer, fromATA.address, toATA.address, payer, amountUSDC);
-  return sig;
+  return await transfer(connection, payer, fromATA.address, toATA.address, payer, amountUSDC);
 }
 
 module.exports = { runPayout };
