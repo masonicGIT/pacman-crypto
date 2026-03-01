@@ -24,11 +24,20 @@ let signer = null;
 
 async function selectChain(chain) {
   selectedChain = chain;
-  document.getElementById('chain-select').style.display = 'none';
-  if (selectedChain === 'base') {
-    await connectEVM();
-  } else {
-    await connectSolana();
+  const chainScreen = document.getElementById('chain-select');
+  chainScreen.style.display = 'none';
+  try {
+    if (selectedChain === 'base') {
+      await connectEVM();
+    } else {
+      await connectSolana();
+    }
+  } catch(e) {
+    // Restore chain select screen on any failure
+    chainScreen.style.display = 'flex';
+    if (e.code !== 4001) { // 4001 = user rejected, no alert needed
+      alert('Could not connect wallet: ' + (e.message || e));
+    }
   }
 }
 
@@ -44,8 +53,7 @@ async function connectWallet() {
 
 async function connectEVM() {
   if (!window.ethereum) {
-    alert('Please install MetaMask or a Base-compatible wallet');
-    return;
+    throw new Error('Please install MetaMask or a Base-compatible wallet');
   }
   provider = new ethers.BrowserProvider(window.ethereum);
   const accounts = await provider.send('eth_requestAccounts', []);
@@ -78,8 +86,7 @@ async function connectEVM() {
 
 async function connectSolana() {
   if (!window.solana?.isPhantom) {
-    alert('Please install Phantom wallet');
-    return;
+    throw new Error('Please install Phantom wallet');
   }
   const resp = await window.solana.connect();
   connectedWallet = resp.publicKey.toString();
