@@ -153,7 +153,7 @@ cron.schedule('0 8 * * *', async () => {
 
 const PORT = process.env.PORT || 3001;
 getDb().then(() => {
-  app.listen(PORT, () => console.log(`Pac-Man crypto server running on port ${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`Pac-Man crypto server running on port ${PORT}`));
 }).catch(err => {
   console.error('DB init failed:', err);
   process.exit(1);
