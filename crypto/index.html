@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAC-MAN — Daily Jackpot</title>
+<script>
+  // Config — set these on the server before deploying
+  window.PACMAN_API_BASE = 'https://your-api-server.com'; // change this
+  window.PACMAN_BASE_TREASURY = '0x0000000000000000000000000000000000000000'; // change this
+  window.PACMAN_SOLANA_TREASURY = 'YourSolanaTreasuryAddressHere'; // change this
+</script>
+<!-- ethers.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+<!-- Solana web3 -->
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<!-- SPL Token -->
+<script src="https://unpkg.com/@solana/spl-token@0.4.0/lib/index.iife.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #000;
+    --gold: #FFD700;
+    --blue: #2196F3;
+    --purple: #9C27B0;
+    --text: #fff;
+    --muted: #888;
+    --border: #222;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; min-height: 100vh; align-items: center; justify-content: center; flex-direction: column; padding: 40px 20px; }
+  .screen.active { display: flex; }
+
+  /* ── HEADER ── */
+  .pac-title {
+    font-size: clamp(36px, 8vw, 72px);
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .pac-subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 48px;
+    text-align: center;
+  }
+
+  /* ── JACKPOT DISPLAY ── */
+  .jackpot-box {
+    border: 1px solid var(--gold);
+    padding: 20px 40px;
+    margin-bottom: 40px;
+    text-align: center;
+    background: rgba(255,215,0,0.05);
+  }
+  .jackpot-label { font-size: 11px; letter-spacing: 3px; color: var(--muted); margin-bottom: 8px; }
+  .jackpot-amount { font-size: 40px; color: var(--gold); }
+  .jackpot-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* ── CHAIN SELECT ── */
+  .chain-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .chain-btn {
+    padding: 20px 40px;
+    border: 1px solid var(--border);
+    background: #0a0a0a;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 160px;
+  }
+  .chain-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .chain-btn.base:hover { border-color: #2196F3; color: #2196F3; }
+  .chain-btn.sol:hover { border-color: #9C27B0; color: #9C27B0; }
+  .chain-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 16px 40px;
+    background: var(--gold);
+    color: #000;
+    border: none;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+  }
+
+  /* ── INFO ROW ── */
+  .info-row {
+    display: flex;
+    gap: 48px;
+    margin: 32px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .info-item { text-align: center; }
+  .info-value { font-size: 24px; color: var(--gold); }
+  .info-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
+
+  /* ── WALLET ── */
+  .wallet-addr { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ── GAME LAYOUT ── */
+  #game-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+  .game-layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
+  #pacman-frame { width: 100%; border: 1px solid var(--border); background: #000; aspect-ratio: 1/1; }
+
+  /* ── LEADERBOARD ── */
+  .lb-panel { border: 1px solid var(--border); padding: 24px; background: #080808; }
+  .lb-title { font-size: 11px; letter-spacing: 3px; color: var(--gold); margin-bottom: 16px; }
+  .lb-prize { font-size: 28px; color: var(--gold); margin-bottom: 4px; }
+  .lb-prize-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 20px; }
+  #leaderboard-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  #leaderboard-list li { display: flex; gap: 8px; font-size: 12px; align-items: baseline; }
+  .lb-rank { color: var(--muted); width: 24px; flex-shrink: 0; }
+  .lb-wallet { color: #aaa; flex: 1; }
+  .lb-score { color: var(--gold); }
+  .lb-chain { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+  .lb-divider { border-top: 1px solid var(--border); margin: 16px 0; }
+  .score-display { font-size: 13px; color: var(--gold); margin-top: 16px; text-align: center; min-height: 20px; }
+
+  /* ── HOW IT WORKS ── */
+  .how-it-works { margin-top: 40px; max-width: 500px; text-align: left; }
+  .how-it-works h3 { font-size: 11px; letter-spacing: 3px; color: var(--muted); margin-bottom: 16px; }
+  .how-it-works ol { padding-left: 20px; }
+  .how-it-works li { font-size: 13px; color: var(--muted); line-height: 2; }
+  .how-it-works li span { color: var(--text); }
+
+  /* ── HISTORY TOGGLE ── */
+  .history-toggle { font-size: 11px; letter-spacing: 2px; color: var(--muted); background: none; border: none; cursor: pointer; text-transform: uppercase; margin-top: 12px; padding: 0; }
+  .history-toggle:hover { color: var(--text); }
+  #history-list { display: none; margin-top: 12px; }
+  #history-list.open { display: block; }
+  #history-list li { font-size: 11px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+
+  @media (max-width: 768px) {
+    .game-layout { grid-template-columns: 1fr; }
+    .lb-panel { order: -1; }
+    #pacman-frame { aspect-ratio: auto; height: 360px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: Chain Select -->
+<div id="chain-select" class="screen active">
+  <div class="pac-title">PAC-MAN</div>
+  <div class="pac-subtitle">Daily Jackpot · $0.25 to Play</div>
+
+  <div id="home-jackpot" class="jackpot-box">
+    <div class="jackpot-label">Today's Prize Pool</div>
+    <div class="jackpot-amount" id="home-pot">$0.00</div>
+    <div class="jackpot-sub">90% goes to today's high scorer at midnight PT</div>
+  </div>
+
+  <div style="font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">Select Chain</div>
+  <div class="chain-buttons">
+    <button class="chain-btn base" onclick="PacmanCrypto.selectChain('base')">
+      <span class="chain-icon">🔵</span>
+      Base
+    </button>
+    <button class="chain-btn sol" onclick="PacmanCrypto.selectChain('solana')">
+      <span class="chain-icon">🟣</span>
+      Solana
+    </button>
+  </div>
+
+  <div class="how-it-works">
+    <h3>How It Works</h3>
+    <ol>
+      <li><span>Pay $0.25 USDC</span> — one play per payment</li>
+      <li><span>Play Pac-Man</span> — get the highest score</li>
+      <li><span>Win the jackpot</span> — midnight PT, top score takes 90%</li>
+    </ol>
+  </div>
+</div>
+
+<!-- SCREEN 2: Wallet Connect -->
+<div id="wallet-connect" class="screen">
+  <div class="pac-title">PAC-MAN</div>
+  <div class="pac-subtitle">Connect your <span id="selected-chain">Base</span> wallet</div>
+  <button class="btn" onclick="PacmanCrypto.connectWallet()">Connect Wallet</button>
+  <button class="btn-secondary btn" style="margin-top:12px;" onclick="document.getElementById('wallet-connect').style.display='none';document.getElementById('chain-select').classList.add('active');document.getElementById('chain-select').style.display='flex';">← Back</button>
+</div>
+
+<!-- SCREEN 3: Payment -->
+<div id="payment-screen" class="screen">
+  <div class="pac-title">PAC-MAN</div>
+  <div class="pac-subtitle">Daily Jackpot</div>
+
+  <div id="pay-jackpot" class="jackpot-box">
+    <div class="jackpot-label">Current Prize Pool</div>
+    <div class="jackpot-amount" id="pay-pot">$0.00</div>
+    <div class="jackpot-sub" id="pay-entries">0 entries today</div>
+  </div>
+
+  <div class="wallet-addr">Connected: <span id="wallet-address"></span></div>
+  <button class="btn" id="pay-btn" onclick="PacmanCrypto.pay()">Pay $0.25 USDC to Play</button>
+</div>
+
+<!-- SCREEN 4: Game -->
+<div id="game-container" style="display:none;padding:20px;">
+  <div class="game-layout">
+    <div>
+      <iframe id="pacman-frame" src="" frameborder="0" allowfullscreen></iframe>
+      <div id="score-display" class="score-display"></div>
+    </div>
+    <div class="lb-panel">
+      <div class="lb-title">Today's Leaderboard</div>
+      <div class="lb-prize" id="pot-amount">$0.00</div>
+      <div class="lb-prize-label">Prize Pool · <span id="entry-count">0</span> entries</div>
+      <div class="lb-divider"></div>
+      <ul id="leaderboard-list">
+        <li style="color:#888">Loading...</li>
+      </ul>
+      <div class="lb-divider"></div>
+      <button class="history-toggle" onclick="document.getElementById('history-list').classList.toggle('open');this.textContent=document.getElementById('history-list').classList.contains('open')?'Hide History ↑':'Past Winners ↓'">Past Winners ↓</button>
+      <ul id="history-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script src="payment.js"></script>
+<script>
+  // Load jackpot on page load
+  async function loadHomePot() {
+    try {
+      const data = await fetch(window.PACMAN_API_BASE + '/api/leaderboard').then(r => r.json());
+      document.getElementById('home-pot').textContent = '$' + data.prize;
+      document.getElementById('pay-pot').textContent = '$' + data.prize;
+      document.getElementById('pay-entries').textContent = data.entries + ' entries today';
+    } catch(e) {}
+  }
+
+  async function loadHistory() {
+    try {
+      const data = await fetch(window.PACMAN_API_BASE + '/api/history').then(r => r.json());
+      const list = document.getElementById('history-list');
+      list.innerHTML = data.length === 0
+        ? '<li><span>No winners yet</span></li>'
+        : data.map(w => `<li><span>${w.date}</span><span>${w.wallet}</span><span style="color:var(--gold)">${w.prize}</span></li>`).join('');
+    } catch(e) {}
+  }
+
+  loadHomePot();
+  loadHistory();
+</script>
+</body>
+</html>
