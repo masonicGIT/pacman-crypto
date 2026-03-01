@@ -16,22 +16,45 @@
 <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 <!-- SPL Token -->
 <script src="https://unpkg.com/@solana/spl-token@0.4.0/lib/index.iife.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --bg: #000;
     --gold: #FFD700;
-    --blue: #2196F3;
-    --purple: #9C27B0;
-    --text: #fff;
-    --muted: #888;
-    --border: #222;
+    --yellow: #FFFF00;
+    --blue: #2121DE;
+    --cyan: #00FFFF;
+    --pink: #FFB8FF;
+    --red: #FF0000;
+    --white: #fff;
+    --muted: #8888ff;
+    --border: #2121DE;
   }
+
   body {
     background: var(--bg);
-    color: var(--text);
-    font-family: 'Courier New', monospace;
+    color: var(--white);
+    font-family: 'Press Start 2P', monospace;
     min-height: 100vh;
+    image-rendering: pixelated;
+  }
+
+  /* scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
   }
 
   /* ── SCREENS ── */
@@ -40,123 +63,161 @@
 
   /* ── HEADER ── */
   .pac-title {
-    font-size: clamp(36px, 8vw, 72px);
-    color: var(--gold);
-    letter-spacing: 4px;
-    text-shadow: 0 0 20px rgba(255,215,0,0.5);
-    margin-bottom: 8px;
+    font-size: clamp(24px, 6vw, 56px);
+    color: var(--yellow);
+    letter-spacing: 6px;
+    text-shadow: 3px 3px 0 #b8860b, 0 0 30px rgba(255,255,0,0.4);
+    margin-bottom: 16px;
     text-align: center;
   }
   .pac-subtitle {
-    font-size: 14px;
-    color: var(--muted);
-    letter-spacing: 3px;
+    font-size: clamp(7px, 1.5vw, 11px);
+    color: var(--cyan);
+    letter-spacing: 2px;
     text-transform: uppercase;
-    margin-bottom: 48px;
+    margin-bottom: 40px;
     text-align: center;
+  }
+
+  /* ── BLINK ── */
+  @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+  .blink { animation: blink 1s step-end infinite; }
+
+  /* ── PIXEL BORDER ── */
+  .pixel-box {
+    border: 4px solid var(--blue);
+    outline: 2px solid var(--cyan);
+    padding: 20px 32px;
+    margin-bottom: 32px;
+    text-align: center;
+    background: #000;
+    box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000;
+    position: relative;
+  }
+  .pixel-box::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(33,33,222,0.3);
   }
 
   /* ── JACKPOT DISPLAY ── */
-  .jackpot-box {
-    border: 1px solid var(--gold);
-    padding: 20px 40px;
-    margin-bottom: 40px;
-    text-align: center;
-    background: rgba(255,215,0,0.05);
-  }
-  .jackpot-label { font-size: 11px; letter-spacing: 3px; color: var(--muted); margin-bottom: 8px; }
-  .jackpot-amount { font-size: 40px; color: var(--gold); }
-  .jackpot-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .jackpot-box { }
+  .jackpot-label { font-size: 8px; letter-spacing: 2px; color: var(--pink); margin-bottom: 12px; text-transform: uppercase; }
+  .jackpot-amount { font-size: clamp(20px, 4vw, 36px); color: var(--yellow); text-shadow: 2px 2px 0 #b8860b; }
+  .jackpot-sub { font-size: 7px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
 
   /* ── CHAIN SELECT ── */
-  .chain-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .chain-buttons { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
   .chain-btn {
-    padding: 20px 40px;
-    border: 1px solid var(--border);
-    background: #0a0a0a;
-    color: var(--text);
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    letter-spacing: 2px;
+    padding: 20px 32px;
+    border: 3px solid var(--blue);
+    outline: 1px solid var(--cyan);
+    background: #000;
+    color: var(--white);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.2s;
-    min-width: 160px;
+    min-width: 140px;
+    transition: none;
+    text-shadow: 1px 1px 0 #000;
   }
-  .chain-btn:hover { border-color: var(--gold); color: var(--gold); }
-  .chain-btn.base:hover { border-color: #2196F3; color: #2196F3; }
-  .chain-btn.sol:hover { border-color: #9C27B0; color: #9C27B0; }
-  .chain-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+  .chain-btn:hover, .chain-btn:focus {
+    background: var(--blue);
+    color: var(--yellow);
+    outline-color: var(--yellow);
+    border-color: var(--yellow);
+  }
+  .chain-icon { font-size: 24px; display: block; margin-bottom: 10px; }
+
+  /* ── SELECT LABEL ── */
+  .select-label {
+    font-size: 8px;
+    color: var(--pink);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
 
   /* ── BUTTONS ── */
   .btn {
-    padding: 16px 40px;
-    background: var(--gold);
+    padding: 14px 32px;
+    background: var(--yellow);
     color: #000;
     border: none;
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    font-weight: bold;
-    letter-spacing: 2px;
+    outline: 3px solid #b8860b;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: opacity 0.2s;
+    box-shadow: 4px 4px 0 #b8860b;
+    transition: none;
   }
-  .btn:hover { opacity: 0.85; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:hover { background: var(--white); box-shadow: 2px 2px 0 #888; transform: translate(2px,2px); }
+  .btn:active { box-shadow: none; transform: translate(4px,4px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: 4px 4px 0 #888; }
   .btn-secondary {
-    background: transparent;
-    color: var(--gold);
-    border: 1px solid var(--gold);
+    background: #000;
+    color: var(--cyan);
+    outline: 3px solid var(--blue);
+    box-shadow: 4px 4px 0 var(--blue);
   }
-
-  /* ── INFO ROW ── */
-  .info-row {
-    display: flex;
-    gap: 48px;
-    margin: 32px 0;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .info-item { text-align: center; }
-  .info-value { font-size: 24px; color: var(--gold); }
-  .info-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
+  .btn-secondary:hover { background: var(--blue); color: var(--yellow); }
 
   /* ── WALLET ── */
-  .wallet-addr { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .wallet-addr { font-size: 7px; color: var(--muted); margin-bottom: 24px; line-height: 2; word-break: break-all; max-width: 320px; text-align: center; }
 
   /* ── GAME LAYOUT ── */
   #game-container { width: 100%; max-width: 1200px; margin: 0 auto; }
-  .game-layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
-  #pacman-frame { width: 100%; border: 1px solid var(--border); background: #000; aspect-ratio: 1/1; }
+  .game-layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+  #pacman-frame { width: 100%; border: 4px solid var(--blue); outline: 2px solid var(--cyan); background: #000; aspect-ratio: 1/1; }
 
   /* ── LEADERBOARD ── */
-  .lb-panel { border: 1px solid var(--border); padding: 24px; background: #080808; }
-  .lb-title { font-size: 11px; letter-spacing: 3px; color: var(--gold); margin-bottom: 16px; }
-  .lb-prize { font-size: 28px; color: var(--gold); margin-bottom: 4px; }
-  .lb-prize-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 20px; }
+  .lb-panel { border: 4px solid var(--blue); outline: 2px solid var(--cyan); padding: 20px; background: #000; }
+  .lb-title { font-size: 8px; letter-spacing: 2px; color: var(--yellow); margin-bottom: 14px; text-shadow: 1px 1px 0 #b8860b; }
+  .lb-prize { font-size: 22px; color: var(--yellow); margin-bottom: 4px; text-shadow: 2px 2px 0 #b8860b; }
+  .lb-prize-label { font-size: 7px; color: var(--muted); letter-spacing: 1px; margin-bottom: 16px; }
   #leaderboard-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-  #leaderboard-list li { display: flex; gap: 8px; font-size: 12px; align-items: baseline; }
-  .lb-rank { color: var(--muted); width: 24px; flex-shrink: 0; }
-  .lb-wallet { color: #aaa; flex: 1; }
-  .lb-score { color: var(--gold); }
-  .lb-chain { font-size: 10px; color: var(--muted); text-transform: uppercase; }
-  .lb-divider { border-top: 1px solid var(--border); margin: 16px 0; }
-  .score-display { font-size: 13px; color: var(--gold); margin-top: 16px; text-align: center; min-height: 20px; }
+  #leaderboard-list li { display: flex; gap: 6px; font-size: 7px; align-items: baseline; }
+  .lb-rank { color: var(--pink); width: 20px; flex-shrink: 0; }
+  .lb-wallet { color: var(--cyan); flex: 1; word-break: break-all; }
+  .lb-score { color: var(--yellow); }
+  .lb-chain { font-size: 6px; color: var(--muted); text-transform: uppercase; }
+  .lb-divider { border-top: 2px solid var(--blue); margin: 14px 0; }
+  .score-display { font-size: 9px; color: var(--yellow); margin-top: 12px; text-align: center; min-height: 20px; text-shadow: 1px 1px 0 #b8860b; }
 
   /* ── HOW IT WORKS ── */
-  .how-it-works { margin-top: 40px; max-width: 500px; text-align: left; }
-  .how-it-works h3 { font-size: 11px; letter-spacing: 3px; color: var(--muted); margin-bottom: 16px; }
-  .how-it-works ol { padding-left: 20px; }
-  .how-it-works li { font-size: 13px; color: var(--muted); line-height: 2; }
-  .how-it-works li span { color: var(--text); }
+  .how-it-works { margin-top: 36px; max-width: 480px; text-align: left; }
+  .how-it-works h3 { font-size: 8px; letter-spacing: 2px; color: var(--pink); margin-bottom: 16px; }
+  .how-it-works ol { padding-left: 0; list-style: none; counter-reset: steps; }
+  .how-it-works li {
+    font-size: 7px;
+    color: var(--muted);
+    line-height: 2.2;
+    padding-left: 20px;
+    position: relative;
+    counter-increment: steps;
+  }
+  .how-it-works li::before { content: counter(steps) '.'; position: absolute; left: 0; color: var(--cyan); }
+  .how-it-works li span { color: var(--white); }
 
   /* ── HISTORY TOGGLE ── */
-  .history-toggle { font-size: 11px; letter-spacing: 2px; color: var(--muted); background: none; border: none; cursor: pointer; text-transform: uppercase; margin-top: 12px; padding: 0; }
-  .history-toggle:hover { color: var(--text); }
-  #history-list { display: none; margin-top: 12px; }
+  .history-toggle { font-size: 7px; letter-spacing: 1px; color: var(--muted); background: none; border: none; cursor: pointer; text-transform: uppercase; margin-top: 10px; padding: 0; font-family: 'Press Start 2P', monospace; }
+  .history-toggle:hover { color: var(--cyan); }
+  #history-list { display: none; margin-top: 10px; }
   #history-list.open { display: block; }
-  #history-list li { font-size: 11px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  #history-list li { font-size: 7px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 4px; }
+
+  /* ── INSERT COIN decoration ── */
+  .insert-coin {
+    font-size: 9px;
+    color: var(--yellow);
+    letter-spacing: 2px;
+    margin-top: 32px;
+  }
 
   @media (max-width: 768px) {
     .game-layout { grid-template-columns: 1fr; }
@@ -170,15 +231,15 @@
 <!-- SCREEN 1: Chain Select -->
 <div id="chain-select" class="screen active">
   <div class="pac-title">PAC-MAN</div>
-  <div class="pac-subtitle">Daily Jackpot · $0.25 to Play</div>
+  <div class="pac-subtitle">★ Daily Jackpot · $0.25 to Play ★</div>
 
-  <div id="home-jackpot" class="jackpot-box">
-    <div class="jackpot-label">Today's Prize Pool</div>
+  <div id="home-jackpot" class="jackpot-box pixel-box">
+    <div class="jackpot-label">— Today's Prize Pool —</div>
     <div class="jackpot-amount" id="home-pot">$0.00</div>
-    <div class="jackpot-sub">90% goes to today's high scorer at midnight PT</div>
+    <div class="jackpot-sub">90% goes to today's high scorer<br>at midnight PT</div>
   </div>
 
-  <div style="font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">Select Chain</div>
+  <div class="select-label">— Select Chain —</div>
   <div class="chain-buttons">
     <button class="chain-btn base" onclick="PacmanCrypto.selectChain('base')">
       <span class="chain-icon">🔵</span>
@@ -190,8 +251,10 @@
     </button>
   </div>
 
+  <div class="insert-coin blink">— INSERT COIN —</div>
+
   <div class="how-it-works">
-    <h3>How It Works</h3>
+    <h3>— How It Works —</h3>
     <ol>
       <li><span>Pay $0.25 USDC</span> — one play per payment</li>
       <li><span>Play Pac-Man</span> — get the highest score</li>
@@ -205,21 +268,21 @@
   <div class="pac-title">PAC-MAN</div>
   <div class="pac-subtitle">Connect your <span id="selected-chain">Base</span> wallet</div>
   <button class="btn" onclick="PacmanCrypto.connectWallet()">Connect Wallet</button>
-  <button class="btn-secondary btn" style="margin-top:12px;" onclick="document.getElementById('wallet-connect').style.display='none';document.getElementById('chain-select').classList.add('active');document.getElementById('chain-select').style.display='flex';">← Back</button>
+  <button class="btn btn-secondary" style="margin-top:16px;" onclick="document.getElementById('wallet-connect').style.display='none';document.getElementById('chain-select').classList.add('active');document.getElementById('chain-select').style.display='flex';">← Back</button>
 </div>
 
 <!-- SCREEN 3: Payment -->
 <div id="payment-screen" class="screen">
   <div class="pac-title">PAC-MAN</div>
-  <div class="pac-subtitle">Daily Jackpot</div>
+  <div class="pac-subtitle">★ Daily Jackpot ★</div>
 
-  <div id="pay-jackpot" class="jackpot-box">
-    <div class="jackpot-label">Current Prize Pool</div>
+  <div id="pay-jackpot" class="jackpot-box pixel-box">
+    <div class="jackpot-label">— Current Prize Pool —</div>
     <div class="jackpot-amount" id="pay-pot">$0.00</div>
     <div class="jackpot-sub" id="pay-entries">0 entries today</div>
   </div>
 
-  <div class="wallet-addr">Connected: <span id="wallet-address"></span></div>
+  <div class="wallet-addr">Connected:<br><span id="wallet-address"></span></div>
   <button class="btn" id="pay-btn" onclick="PacmanCrypto.pay()">Pay $0.25 USDC to Play</button>
 </div>
 
