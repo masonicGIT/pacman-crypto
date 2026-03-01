@@ -2,7 +2,7 @@ app = "pacman-jackpot"
 primary_region = "lax"
 
 [build]
-  dockerfile = "server/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "3001"
